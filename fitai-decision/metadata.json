@@ -1,0 +1,5 @@
+{
+  "name": "FitAI Decision",
+  "description": "An AI-powered sports data decision system for tracking exercise, diet, and receiving personalized health advice.",
+  "requestFramePermissions": []
+}
