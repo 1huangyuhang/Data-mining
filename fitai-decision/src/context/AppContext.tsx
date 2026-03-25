@@ -12,6 +12,7 @@ import React, {
 } from 'react';
 import { ExerciseRecord, DietRecord, AIMessage, UserProfile } from '../types';
 import { format } from 'date-fns';
+import { apiService } from '../services/api/apiService';
 
 interface AppState {
   user: UserProfile;
@@ -28,7 +29,8 @@ type AppAction =
   | { type: 'ADD_CHAT_MESSAGE'; payload: AIMessage }
   | { type: 'TOGGLE_CHAT' }
   | { type: 'SET_THEME'; payload: 'light' | 'dark' }
-  | { type: 'UPDATE_USER'; payload: Partial<UserProfile> };
+  | { type: 'UPDATE_USER'; payload: Partial<UserProfile> }
+  | { type: 'CLEAR_EXERCISES' };
 
 const initialState: AppState = {
   user: {
@@ -115,6 +117,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, theme: action.payload };
     case 'UPDATE_USER':
       return { ...state, user: { ...state.user, ...action.payload } };
+    case 'CLEAR_EXERCISES':
+      return { ...state, exercises: [] };
     default:
       return state;
   }
@@ -124,6 +128,44 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
+
+  // 从后端获取健身数据
+  useEffect(() => {
+    const fetchFitnessData = async () => {
+      try {
+        // 清空现有数据
+        dispatch({ type: 'CLEAR_EXERCISES' });
+        
+        // 从后端获取健身数据
+        const response = await apiService.get<any[]>('/v1/fitness');
+        
+        // 转换后端数据为前端ExerciseRecord格式
+        const exercisesFromBackend = response.map((item: any) => ({
+          id: item.id.toString(),
+          type: item.activityType,
+          duration: item.duration,
+          calories: item.caloriesBurned,
+          date: format(new Date(item.timestamp), 'yyyy-MM-dd'),
+          distance: item.distance,
+          heartRate: item.heartRate,
+          intensity: 'medium' // 后端数据中没有强度字段，使用默认值
+        }));
+        
+        // 更新状态
+        if (exercisesFromBackend.length > 0) {
+          // 添加从后端获取的数据
+          exercisesFromBackend.forEach(exercise => {
+            dispatch({ type: 'ADD_EXERCISE', payload: exercise });
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch fitness data:', error);
+        // 出错时使用默认数据
+      }
+    };
+
+    fetchFitnessData();
+  }, []);
 
   useEffect(() => {
     // Sync theme with document class
